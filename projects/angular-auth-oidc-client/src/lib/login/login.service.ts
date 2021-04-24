@@ -17,7 +17,7 @@ export class LoginService {
     private standardLoginService: StandardLoginService
   ) {}
 
-  login(authOptions?: AuthOptions): void {
+  login(authOptions?: AuthOptions): Observable<LoginResponse> {
     const { usePushedAuthorisationRequests } = this.configurationProvider.getOpenIDConfiguration();
 
     if (usePushedAuthorisationRequests) {

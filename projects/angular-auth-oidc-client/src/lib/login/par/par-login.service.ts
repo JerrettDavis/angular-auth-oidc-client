@@ -30,54 +30,57 @@ export class ParLoginService {
     private checkAuthService: CheckAuthService,
     private userService: UserService,
     private authStateService: AuthStateService,
-    private parService: ParService
-  ) {}
+    private parService: ParService,
+  ) {
+  }
 
-  loginPar(authOptions?: AuthOptions): void {
-    if (!this.responseTypeValidationService.hasConfigValidResponseType()) {
-      this.loggerService.logError('Invalid response type!');
-      return;
+  loginPar(authOptions?: AuthOptions): Observable<LoginResponse> {
+    const badConfig = this.handleHasBadConfigType();
+    if (badConfig) {
+      return badConfig;
     }
+
 
     const { authWellknownEndpoint } = this.configurationProvider.getOpenIDConfiguration();
 
     if (!authWellknownEndpoint) {
-      this.loggerService.logError('no authWellknownEndpoint given!');
-      return;
+      const errorMessage = 'no authWellknownEndpoint given!';
+      this.loggerService.logError(errorMessage);
+      return throwError(errorMessage);
     }
 
     this.loggerService.logDebug('BEGIN Authorize OIDC Flow, no auth data');
 
     const { urlHandler, customParams } = authOptions || {};
 
-    this.authWellKnownService
-      .getAuthWellKnownEndPoints(authWellknownEndpoint)
-      .pipe(switchMap(() => this.parService.postParRequest(customParams)))
-      .subscribe((response) => {
-        this.loggerService.logDebug('par response: ', response);
+    return this.authWellKnownService
+      .getAuthWellKnownEndPoints(authWellknownEndpoint).pipe(
+        switchMap(() => this.parService.postParRequest(customParams)),
+        switchMap((response: ParResponse) => {
+          this.loggerService.logDebug('par response: ', response);
 
-        const url = this.urlService.getAuthorizeParUrl(response.requestUri);
+          const url = this.urlService.getAuthorizeParUrl(response.requestUri);
 
-        this.loggerService.logDebug('par request url: ', url);
+          this.loggerService.logDebug('par request url: ', url);
 
-        if (!url) {
-          this.loggerService.logError(`Could not create url with param ${response.requestUri}: '${url}'`);
-          return;
-        }
+          if (!url) {
+            const errorMessage = `Could not create url with param ${response.requestUri}: '${url}'`;
+            this.loggerService.logError(errorMessage);
+            return throwError(errorMessage);
+          }
 
-        if (urlHandler) {
-          urlHandler(url);
-        } else {
-          this.redirectService.redirectTo(url);
-        }
-      });
+          if (urlHandler) {
+            urlHandler(url);
+          } else {
+            this.redirectService.redirectTo(url);
+          }
+        });
   }
 
   loginWithPopUpPar(authOptions?: AuthOptions, popupOptions?: PopupOptions): Observable<LoginResponse> {
-    if (!this.responseTypeValidationService.hasConfigValidResponseType()) {
-      const errorMessage = 'Invalid response type!';
-      this.loggerService.logError(errorMessage);
-      return throwError(errorMessage);
+    const badConfig = this.handleHasBadConfigType();
+    if (badConfig) {
+      return badConfig;
     }
 
     const { authWellknownEndpoint } = this.configurationProvider.getOpenIDConfiguration();
@@ -116,9 +119,18 @@ export class ParLoginService {
             isAuthenticated,
             userData: this.userService.getUserDataFromStore(),
             accessToken: this.authStateService.getAccessToken(),
-          }))
+          })),
         );
-      })
+      }),
     );
+  }
+
+  private handleHasBadConfigType(): Observable<LoginResponse> {
+    if (!this.responseTypeValidationService.hasConfigValidResponseType()) {
+      const errorMessage = 'Invalid response type!';
+      this.loggerService.logError(errorMessage);
+      return throwError(errorMessage);
+    }
+    return null;
   }
 }

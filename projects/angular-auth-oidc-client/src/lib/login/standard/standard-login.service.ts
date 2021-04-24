@@ -6,6 +6,8 @@ import { RedirectService } from '../../utils/redirect/redirect.service';
 import { UrlService } from '../../utils/url/url.service';
 import { AuthOptions } from '../auth-options';
 import { ResponseTypeValidationService } from '../response-type-validation/response-type-validation.service';
+import { Observable, throwError } from 'rxjs';
+import { LoginResponse } from '../login-response';
 
 @Injectable()
 export class StandardLoginService {
@@ -18,17 +20,19 @@ export class StandardLoginService {
     private authWellKnownService: AuthWellKnownService
   ) {}
 
-  loginStandard(authOptions?: AuthOptions): void {
+  loginStandard(authOptions?: AuthOptions): Observable<LoginResponse> {
     if (!this.responseTypeValidationService.hasConfigValidResponseType()) {
+      const errorMessage = 'Invalid response type!';
       this.loggerService.logError('Invalid response type!');
-      return;
+      return throwError(errorMessage);
     }
 
     const { authWellknownEndpoint } = this.configurationProvider.getOpenIDConfiguration();
 
     if (!authWellknownEndpoint) {
-      this.loggerService.logError('no authWellknownEndpoint given!');
-      return;
+      const errorMessage = 'no authWellknownEndpoint given!';
+      this.loggerService.logError(errorMessage);
+      return throwError(errorMessage);
     }
 
     this.loggerService.logDebug('BEGIN Authorize OIDC Flow, no auth data');
